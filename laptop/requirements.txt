@@ -1,0 +1,9 @@
+opencv-python
+ultralytics
+google-genai
+pyserial
+sounddevice
+numpy
+pyttsx3
+flask
+python-dotenv

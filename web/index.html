@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hey Guide</title>
+<style>
+  :root { --bg:#0f1020; --card:#1b1d36; --text:#f4f4ff; --muted:#a8aacc; --accent:#ffd84d; --danger:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--text); font-size:18px; }
+  header { padding:20px 16px; font-size:28px; font-weight:700; }
+  header span { color:var(--accent); }
+  main { display:grid; gap:16px; padding:0 16px 24px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  section { background:var(--card); border-radius:16px; padding:16px; }
+  h2 { margin:0 0 12px; font-size:20px; }
+  #live { width:100%; border-radius:12px; background:#000; min-height:200px; }
+  .dist { font-size:48px; font-weight:800; }
+  .dist.close { color:var(--danger); }
+  .obj { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+  .obj img { width:96px; height:72px; object-fit:cover; border-radius:8px; background:#000; }
+  .obj b { text-transform:capitalize; }
+  .muted { color:var(--muted); font-size:15px; }
+  .log div { border-bottom:1px solid #2c2f55; padding:8px 0; }
+  form { display:flex; gap:8px; margin-top:12px; }
+  input { flex:1; padding:12px; border-radius:10px; border:none; font-size:18px; }
+  button { padding:12px 18px; border-radius:10px; border:none; background:var(--accent); font-weight:700; font-size:18px; }
+</style>
+</head>
+<body>
+<header>Hey <span>Guide</span></header>
+<main>
+  <section>
+    <h2>Live view</h2>
+    <img id="live" alt="Live camera view with detected objects">
+    <p class="muted" id="seen">Looking…</p>
+  </section>
+  <section>
+    <h2>Nearest obstacle</h2>
+    <div class="dist" id="dist" aria-live="polite">–</div>
+  </section>
+  <section>
+    <h2>Where are my things?</h2>
+    <div id="memory"></div>
+  </section>
+  <section>
+    <h2>Ask Hey Guide</h2>
+    <div class="log" id="log"></div>
+    <form id="ask">
+      <input id="q" placeholder="Where are my keys?" aria-label="Question">
+      <button>Ask</button>
+    </form>
+  </section>
+</main>
+<script>
+function ago(t, now){ const m=Math.floor((now-t)/60); return m<1?"just now":m+" min ago"; }
+async function refresh(){
+  try {
+    const s = await (await fetch("/api/state")).json();
+    document.getElementById("live").src = "/live.jpg?" + Date.now();
+    const d = s.distance_cm, el = document.getElementById("dist");
+    el.textContent = d > 0 ? (d/100).toFixed(1) + " m" : "Clear";
+    el.classList.toggle("close", d > 0 && d < 60);
+    document.getElementById("seen").textContent =
+      s.detections.length ? "Seeing: " + s.detections.map(x=>x.label).join(", ") : "Nothing tracked in view";
+    document.getElementById("memory").innerHTML = Object.entries(s.memory).map(([k,v]) =>
+      `<div class="obj"><img src="/memory/${v.image}?${v.time}" alt="${k}">
+       <div><b>${k}</b><div>${v.description||"Location not described yet"}</div>
+       <div class="muted">Seen ${ago(v.time, s.now)}</div></div></div>`).join("") || '<p class="muted">Nothing remembered yet.</p>';
+    document.getElementById("log").innerHTML = s.log.slice().reverse().map(x =>
+      `<div><div class="muted">${x.question||"(voice)"}</div><div>${x.answer}</div></div>`).join("");
+  } catch(e) {}
+}
+document.getElementById("ask").onsubmit = async e => {
+  e.preventDefault();
+  const q = document.getElementById("q").value; if(!q) return;
+  document.getElementById("q").value = "";
+  await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});
+  refresh();
+};
+setInterval(refresh, 1000); refresh();
+</script>
+</body>
+</html>
