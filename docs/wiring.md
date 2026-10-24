@@ -8,3 +8,5 @@
 | HC-SR04P | Echo | D3 |
 | Passive buzzer | + | D5 |
 | Passive buzzer | − | GND |
+| Push button | one leg | D4 |
+| Push button | other leg | GND |

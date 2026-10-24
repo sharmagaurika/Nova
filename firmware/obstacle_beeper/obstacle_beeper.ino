@@ -8,17 +8,21 @@
 //   HC-SR04P Echo -> D3
 //   Buzzer +      -> D5   (longer leg, or the side marked +)
 //   Buzzer -      -> GND
+//   Button        -> D4 and GND   (press to ask Nova a question)
 //
 // Open Tools > Serial Monitor at 115200 baud to see "DIST:xx" readings (in cm).
 
 const int TRIG_PIN = 2;
 const int ECHO_PIN = 3;
+const int BUTTON_PIN = 4;
 const int BUZZER_PIN = 5;
 
 const int CLOSE_CM = 40;   // closer than this: constant tone
 const int FAR_CM = 200;    // farther than this: silent
 
 unsigned long lastBeep = 0;
+bool lastButton = HIGH;
+unsigned long lastPress = 0;
 
 // Take one distance reading in cm. Returns -1 if nothing was detected.
 long readDistanceCm() {
@@ -54,9 +58,18 @@ void setup() {
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // reads LOW while pressed
 }
 
 void loop() {
+  // Button pressed: tell the laptop to listen for a question
+  bool button = digitalRead(BUTTON_PIN);
+  if (button == LOW && lastButton == HIGH && millis() - lastPress > 500) {
+    Serial.println("WAKE");
+    lastPress = millis();
+  }
+  lastButton = button;
+
   long d = averageDistanceCm();
 
   // Send distance to the laptop (used later by the Python script)
