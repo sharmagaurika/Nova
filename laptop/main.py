@@ -27,9 +27,12 @@ state = {
     "frame": None,          # latest raw camera frame
     "log": [],
     "live_jpg": None,
-    "distance_cm": lambda: nano.distance_cm if nano else -1,
+    "obstacle": None,       # nearest thing in the walking path: (name, metres, direction)
+    "distance_cm": lambda: (nano.distance_cm if nano else
+                            state["obstacle"][1] * 100 if state["obstacle"] else -1),
     "mic": lambda: voice.status["mic"],
 }
+alerts = {"beep": 0, "said": 0, "said_what": None}
 finder = Finder(state, config.FINDER_SECONDS, config.FINDER_EVERY_S)
 assistant.describe_in_background(memory)
 busy = threading.Lock()
@@ -67,6 +70,22 @@ def on_wake():
         busy.release()
 
 
+def warn_obstacle(obstacle):
+    """Beep faster as an obstacle gets closer; say what it is when it's very close."""
+    if not obstacle or voice.status["mic"] != "idle" or finder.colour:
+        return  # don't talk over questions, answers or friend-finder guidance
+    name, metres, where = obstacle
+    now = time.time()
+    if metres < config.OBSTACLE_SAY_M:
+        if name != alerts["said_what"] or now - alerts["said"] > 5:
+            alerts.update(said=now, said_what=name, beep=now)
+            threading.Thread(target=say, args=(f"Careful, {name} {where}.",), daemon=True).start()
+            return
+    if metres < config.OBSTACLE_WARN_M and now - alerts["beep"] > max(0.25, metres / 2):
+        alerts["beep"] = now
+        threading.Thread(target=beep, args=(1200, 80), daemon=True).start()
+
+
 def camera_loop():
     stock = Detector(config.MODEL_PATH, config.CONFIDENCE)  # every COCO object
     custom = (Detector(config.CUSTOM_MODEL_PATH, config.CUSTOM_CONFIDENCE, config.CUSTOM_TRACKED)
@@ -85,6 +104,12 @@ def camera_loop():
         state["detections"] = [{"label": l, "conf": round(c, 2)} for l, c, _ in found]
         for label, _, box in found:
             memory.remember(label, frame, scene.near(label, box, everything))
+        state["obstacle"] = scene.nearest_obstacle(everything, frame.shape, config.CAMERA_HFOV_DEG)
+        warn_obstacle(state["obstacle"])
+        if state["obstacle"] and state["obstacle"][1] < config.OBSTACLE_WARN_M:
+            name, metres, _ = state["obstacle"]
+            cv2.putText(annotated, f"{name} {metres} m", (15, annotated.shape[0] - 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 3)
         mic = voice.status["mic"]
         if mic != "idle":  # big banner so it's obvious when the mic is on
             colour = {"listening": (0, 0, 255), "thinking": (0, 200, 255), "speaking": (0, 200, 0)}[mic]

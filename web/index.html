@@ -43,6 +43,7 @@
   <section>
     <h2>Nearest obstacle</h2>
     <div class="dist" id="dist" aria-live="polite">–</div>
+    <div id="obwhat" class="muted" style="text-transform:capitalize"></div>
   </section>
   <section>
     <h2>Where are my things?</h2>
@@ -68,8 +69,10 @@ async function refresh(){
     mic.className = "mic " + s.mic;
     mic.textContent = {idle:"Mic off", listening:"🔴 Listening…", thinking:"Thinking…", speaking:"Speaking"}[s.mic] || s.mic;
     const d = s.distance_cm, el = document.getElementById("dist");
+    const ob = s.obstacle;  // [name, metres, direction] from the camera
     el.textContent = d > 0 ? (d/100).toFixed(1) + " m" : "Clear";
-    el.classList.toggle("close", d > 0 && d < 60);
+    document.getElementById("obwhat").textContent = ob ? `${ob[0]} · ${ob[2]}` : "Nothing in your path";
+    el.classList.toggle("close", d > 0 && d < 100);
     document.getElementById("seen").textContent =
       s.detections.length ? "Seeing: " + s.detections.map(x=>x.label).join(", ") : "Nothing tracked in view";
     document.getElementById("memory").innerHTML = Object.entries(s.memory).sort((a, b) => b[1].time - a[1].time).map(([k,v]) =>

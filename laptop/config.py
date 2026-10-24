@@ -39,6 +39,11 @@ if not USE_CUSTOM:
 OBJECTS = list(TRACKED.values()) + (list(CUSTOM_TRACKED.values()) if USE_CUSTOM else [])
 RECORD_SECONDS = 7  # longest a question can be; recording stops early once you go quiet
 
+# Camera obstacle warnings: beeps start below WARN_M and speed up; spoken warning below SAY_M
+CAMERA_HFOV_DEG = 65   # phone main camera's horizontal field of view
+OBSTACLE_WARN_M = 2.5
+OBSTACLE_SAY_M = 1.0
+
 # Friend finder: how long to keep guiding, and how often to check
 FINDER_SECONDS = 45
 FINDER_EVERY_S = 1.5

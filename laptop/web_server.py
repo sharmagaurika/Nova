@@ -17,6 +17,7 @@ def create_app(state, memory, handle_question, on_listen):
     def api_state():
         return jsonify({
             "distance_cm": state["distance_cm"](),
+            "obstacle": state["obstacle"],
             "mic": state["mic"](),
             "detections": state["detections"],
             "log": state["log"][-20:],

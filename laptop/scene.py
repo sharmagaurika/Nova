@@ -1,4 +1,5 @@
 """Offline scene understanding from detections: directions, distances, shirt colours."""
+import math
 import cv2
 import numpy as np
 
@@ -70,6 +71,33 @@ def describe(detections, shape):
     order = ["straight ahead", "slightly to your left", "slightly to your right", "on your left", "on your right"]
     parts = [f"{d.capitalize()}: {', '.join(groups[d][:3])}." for d in order if d in groups]
     return " ".join(parts)
+
+
+# Typical real heights (m) of things you might walk into, for estimating distance from the camera
+OBSTACLE_HEIGHTS = {
+    "person": 1.7, "chair": 0.9, "dining table": 0.75, "couch": 0.85, "bench": 0.5, "bed": 0.6,
+    "bicycle": 1.0, "motorcycle": 1.1, "car": 1.5, "potted plant": 0.6, "suitcase": 0.6, "backpack": 0.5,
+    "dog": 0.6, "tv": 0.6, "refrigerator": 1.7, "fire hydrant": 0.8, "stop sign": 2.0, "toilet": 0.8,
+}
+
+
+def nearest_obstacle(detections, shape, hfov_deg):
+    """Closest obstacle in the walking path (middle of the frame): (name, metres, direction) or None."""
+    height, width = shape[:2]
+    focal = (width / 2) / math.tan(math.radians(hfov_deg / 2))  # focal length in pixels
+    best = None
+    for label, _, (x1, y1, x2, y2) in detections:
+        if label not in OBSTACLE_HEIGHTS:
+            continue
+        if x2 < width * 0.2 or x1 > width * 0.8:  # off to the side, not in your way
+            continue
+        metres = OBSTACLE_HEIGHTS[label] * focal / max(y2 - y1, 1)
+        if y1 <= 2 and y2 >= height - 2:  # fills the frame top to bottom: it's very close
+            metres = min(metres, 0.7)
+        if best is None or metres < best[1]:
+            name = "table" if label == "dining table" else label
+            best = (name, round(metres, 1), direction((x1, y1, x2, y2), width))
+    return best
 
 
 SURFACES = {"dining table": "table", "bed": "bed", "couch": "couch", "chair": "chair", "bench": "bench"}
