@@ -5,7 +5,7 @@ import cv2
 
 import config
 from assistant import Assistant
-from detector import Detector
+from detector import Detector, draw
 from memory import Memory
 from voice import beep, record_wav, say
 from web_server import create_app
@@ -48,14 +48,17 @@ def on_wake():
 
 
 def camera_loop():
-    detector = Detector(config.MODEL_PATH, config.CONFIDENCE)
+    detectors = [Detector(config.MODEL_PATH, config.CONFIDENCE, config.TRACKED, config.MIN_CONF)]
+    if config.USE_CUSTOM:
+        detectors.append(Detector(config.CUSTOM_MODEL_PATH, config.CUSTOM_CONFIDENCE, config.CUSTOM_TRACKED))
     cap = cv2.VideoCapture(config.CAMERA_SOURCE)
     while True:
         ok, frame = cap.read()
         if not ok:
             time.sleep(0.5)
             continue
-        found, annotated = detector.detect(frame)
+        found = [f for d in detectors for f in d.detect(frame)]
+        annotated = draw(frame, found)
         state["detections"] = [{"label": l, "conf": round(c, 2)} for l, c, _ in found]
         for label, _, _ in found:
             memory.remember(label, frame)
@@ -64,6 +67,10 @@ def camera_loop():
         key = cv2.waitKey(1) & 0xFF
         if key == ord(" "):  # spacebar = backup trigger
             threading.Thread(target=on_wake, daemon=True).start()
+        elif key == ord("q"):
+            break
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

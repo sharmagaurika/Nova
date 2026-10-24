@@ -12,9 +12,24 @@ CAMERA_SOURCE = int(_cam) if _cam.isdigit() else _cam
 SERIAL_PORT = os.getenv("SERIAL_PORT", "COM3")
 SERIAL_BAUD = 115200
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "best.pt")
 MEMORY_DIR = os.path.join(os.path.dirname(__file__), "..", "memory")
 
-OBJECTS = ["keys", "wallet", "glasses"]
-CONFIDENCE = 0.5
+# Stock YOLOv8 (trained on COCO) - fast, offline, no training needed
+MODEL_PATH = os.getenv("MODEL_PATH", "yolov8s.pt")  # downloaded automatically on first run
+CONFIDENCE = 0.4
+
+# Objects we remember: {COCO class name: name we use}
+TRACKED = {"bottle": "bottle", "cup": "cup", "backpack": "backpack", "laptop": "laptop", "umbrella": "umbrella"}
+# Optional stricter cut-offs for objects that get confused, e.g. {"cup": 0.6}
+MIN_CONF = {}
+
+# Our own model (trained in models/train_nova.ipynb), run alongside the stock one
+CUSTOM_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "best.pt")
+CUSTOM_TRACKED = {"keys": "keys", "wallet": "wallet", "phone": "phone"}
+CUSTOM_CONFIDENCE = 0.5
+USE_CUSTOM = os.path.exists(CUSTOM_MODEL_PATH)
+if not USE_CUSTOM:
+    print("models/best.pt not found - keys/wallet/phone off until it's trained")
+
+OBJECTS = list(TRACKED.values()) + (list(CUSTOM_TRACKED.values()) if USE_CUSTOM else [])
 RECORD_SECONDS = 4
