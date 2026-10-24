@@ -3,96 +3,282 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hey Guide</title>
+<title>Nova</title>
 <style>
-  :root { --bg:#0f1020; --card:#1b1d36; --text:#f4f4ff; --muted:#a8aacc; --accent:#ffd84d; --danger:#ff6b6b; }
+  :root {
+    --bg:#060912; --panel:rgba(255,255,255,.035); --line:rgba(255,255,255,.08); --text:#eef1ff; --muted:#8d93b8;
+    --a1:#7c5cff; --a2:#22d3ee; --ok:#34d399; --warn:#ffb547; --danger:#ff5d6c;
+    --grad:linear-gradient(135deg, var(--a1), var(--a2));
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--text); font-size:18px; }
-  header { padding:20px 16px; font-size:28px; font-weight:700; }
-  header span { color:var(--accent); }
-  main { display:grid; gap:16px; padding:0 16px 24px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
-  section { background:var(--card); border-radius:16px; padding:16px; }
-  h2 { margin:0 0 12px; font-size:20px; }
-  #live { width:100%; border-radius:12px; background:#000; min-height:200px; }
-  .dist { font-size:48px; font-weight:800; }
-  .dist.close { color:var(--danger); }
-  .obj { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
-  .obj img { width:96px; height:72px; object-fit:cover; border-radius:8px; background:#000; }
-  .obj b { text-transform:capitalize; }
-  .muted { color:var(--muted); font-size:15px; }
-  .log { max-height:320px; overflow-y:auto; }
-  .log > div { border-bottom:1px solid #2c2f55; padding:8px 0; }
-  form { display:flex; gap:8px; margin-top:12px; }
-  input { flex:1; padding:12px; border-radius:10px; border:none; font-size:18px; }
-  button { padding:12px 18px; border-radius:10px; border:none; background:var(--accent); font-weight:700; font-size:18px; }
-  header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  .mic { font-size:16px; font-weight:700; padding:6px 14px; border-radius:999px; background:#2c2f55; color:var(--muted); }
-  .mic.listening { background:#e53935; color:#fff; }
-  .mic.thinking { background:#ffb300; color:#000; }
-  .mic.speaking { background:#43a047; color:#fff; }
+  body {
+    margin:0; min-height:100vh; color:var(--text); font:16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(900px 500px at 10% -10%, rgba(124,92,255,.22), transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, rgba(34,211,238,.14), transparent 60%), var(--bg);
+  }
+  .wrap { max-width:1320px; margin:0 auto; padding:20px 20px 32px; }
+
+  /* Header */
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  .brand { display:flex; align-items:center; gap:14px; }
+  .orb { width:44px; height:44px; border-radius:50%; background:var(--grad); position:relative;
+         box-shadow:0 0 30px rgba(124,92,255,.6); }
+  .orb::after { content:""; position:absolute; inset:10px; border-radius:50%; background:var(--bg); }
+  .orb::before { content:""; position:absolute; inset:17px; border-radius:50%; background:var(--grad); z-index:1; }
+  .brand h1 { margin:0; font-size:30px; letter-spacing:.5px; font-weight:800; }
+  .brand h1 span { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .brand p { margin:0; color:var(--muted); font-size:14px; }
+  .pills { display:flex; gap:10px; flex-wrap:wrap; }
+  .pill { display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px; border:1px solid var(--line);
+          background:var(--panel); font-size:14px; font-weight:600; color:var(--muted); transition:.25s; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#555b7d; }
+  .pill.on .dot { background:var(--ok); box-shadow:0 0 10px var(--ok); }
+  .pill.listening { color:#fff; border-color:var(--danger); background:rgba(255,93,108,.15); }
+  .pill.listening .dot { background:var(--danger); box-shadow:0 0 10px var(--danger); animation:blink 1s infinite; }
+  .pill.thinking { color:#fff; border-color:var(--warn); background:rgba(255,181,71,.12); }
+  .pill.thinking .dot { background:var(--warn); }
+  .pill.speaking { color:#fff; border-color:var(--ok); background:rgba(52,211,153,.12); }
+  .pill.speaking .dot { background:var(--ok); }
+
+  /* Layout */
+  .grid { display:grid; gap:18px; grid-template-columns:minmax(0,1.65fr) minmax(320px,1fr);
+          grid-template-areas:"live path" "live ask" "things ask"; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:18px;
+          backdrop-filter:blur(10px); min-width:0; }
+  .card h2 { margin:0 0 14px; font-size:13px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .live { grid-area:live; padding:0; overflow:hidden; position:relative; }
+  .path { grid-area:path; }
+  .ask { grid-area:ask; display:flex; flex-direction:column; min-height:420px; }
+  .things { grid-area:things; }
+  @media (max-width:900px) {
+    .grid { grid-template-columns:1fr; grid-template-areas:"live" "ask" "path" "things"; }
+  }
+
+  /* Live view */
+  .live .frame { position:relative; aspect-ratio:16/9; background:#000; }
+  .live img { width:100%; height:100%; object-fit:cover; display:block; }
+  .live .empty { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); text-align:center; padding:20px; }
+  .badge-live { position:absolute; top:14px; left:14px; display:flex; align-items:center; gap:7px; padding:6px 12px;
+                border-radius:999px; background:rgba(0,0,0,.55); font-size:12px; font-weight:800; letter-spacing:1.5px; }
+  .badge-live .dot { background:var(--danger); box-shadow:0 0 10px var(--danger); animation:blink 1.4s infinite; }
+  .seeing { position:absolute; left:14px; right:14px; bottom:14px; display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:6px 12px; border-radius:999px; background:rgba(6,9,18,.7); border:1px solid rgba(255,255,255,.15);
+          font-size:13px; font-weight:600; text-transform:capitalize; backdrop-filter:blur(6px); }
+  .alert { position:absolute; top:14px; right:14px; padding:8px 14px; border-radius:12px; font-weight:800;
+           background:var(--danger); color:#fff; box-shadow:0 8px 30px rgba(255,93,108,.5); text-transform:capitalize; }
+
+  /* Path radar */
+  .radar { display:flex; align-items:center; gap:18px; }
+  .radar svg { width:190px; flex:none; }
+  .wedge { fill:rgba(255,255,255,.05); stroke:rgba(255,255,255,.08); stroke-width:1; transition:fill .3s; }
+  .wedge.hit { fill:var(--hit, var(--a2)); }
+  .readout .big { font-size:46px; font-weight:800; line-height:1; letter-spacing:-1px; }
+  .readout .what { margin-top:6px; color:var(--muted); text-transform:capitalize; }
+  .meter { height:8px; border-radius:99px; background:rgba(255,255,255,.07); margin-top:14px; overflow:hidden; }
+  .meter i { display:block; height:100%; width:0; border-radius:99px; background:var(--grad); transition:width .3s, background .3s; }
+  .near .big { color:var(--danger); }
+  .near .meter i { background:var(--danger); }
+  .mid .big { color:var(--warn); }
+  .mid .meter i { background:var(--warn); }
+
+  /* Ask */
+  .composer { display:flex; gap:10px; align-items:center; margin-bottom:14px; }
+  .mic { width:58px; height:58px; flex:none; border-radius:50%; border:none; cursor:pointer; font-size:24px; color:#fff;
+         background:var(--grad); box-shadow:0 8px 24px rgba(124,92,255,.45); position:relative; transition:transform .15s; }
+  .mic:hover { transform:scale(1.05); }
+  .mic.listening { background:var(--danger); box-shadow:0 0 0 0 rgba(255,93,108,.7); animation:pulse 1.2s infinite; }
+  .mic.thinking { background:var(--warn); }
+  .mic.speaking { background:var(--ok); }
+  .composer form { flex:1; display:flex; gap:8px; min-width:0; }
+  .composer input { flex:1; min-width:0; padding:14px 16px; border-radius:14px; border:1px solid var(--line);
+                    background:rgba(0,0,0,.3); color:var(--text); font-size:16px; outline:none; }
+  .composer input:focus { border-color:var(--a1); box-shadow:0 0 0 3px rgba(124,92,255,.25); }
+  .composer button[type=submit] { padding:0 18px; border-radius:14px; border:none; background:rgba(255,255,255,.08);
+                                  color:var(--text); font-weight:700; font-size:15px; cursor:pointer; }
+  .hints { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .hint { padding:6px 12px; border-radius:999px; border:1px dashed rgba(255,255,255,.18); color:var(--muted);
+          font-size:13px; cursor:pointer; background:none; }
+  .hint:hover { color:var(--text); border-color:var(--a2); }
+  .chat { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding-right:4px; max-height:520px; }
+  .turn { display:flex; flex-direction:column; gap:6px; animation:rise .35s ease; }
+  .q { align-self:flex-end; max-width:85%; padding:9px 14px; border-radius:16px 16px 4px 16px;
+       background:linear-gradient(135deg, rgba(124,92,255,.35), rgba(34,211,238,.22)); }
+  .a { align-self:flex-start; max-width:92%; padding:10px 14px; border-radius:16px 16px 16px 4px;
+       background:rgba(255,255,255,.06); border:1px solid var(--line); }
+  .meta { font-size:12px; color:var(--muted); align-self:flex-end; }
+  .nochat { color:var(--muted); text-align:center; margin:auto; padding:20px; }
+
+  /* Things */
+  .tiles { display:grid; gap:14px; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); }
+  .tile { border-radius:16px; overflow:hidden; border:1px solid var(--line); background:rgba(0,0,0,.25); animation:rise .35s ease; }
+  .tile img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:#000; }
+  .tile .body { padding:10px 12px 12px; }
+  .tile .name { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:800; text-transform:capitalize; }
+  .tag { font-size:11px; font-weight:700; padding:3px 8px; border-radius:99px; text-transform:none; white-space:nowrap; }
+  .tag.ok { background:rgba(52,211,153,.15); color:var(--ok); }
+  .tag.unsure { background:rgba(255,181,71,.15); color:var(--warn); }
+  .tile .where { margin-top:4px; font-size:14px; }
+  .tile .when { margin-top:6px; font-size:12px; color:var(--muted); }
+  .tile.fresh { border-color:rgba(34,211,238,.5); box-shadow:0 0 0 1px rgba(34,211,238,.25), 0 8px 30px rgba(34,211,238,.12); }
+
+  @keyframes blink { 50% { opacity:.35; } }
+  @keyframes pulse { 70% { box-shadow:0 0 0 18px rgba(255,93,108,0); } 100% { box-shadow:0 0 0 0 rgba(255,93,108,0); } }
+  @keyframes rise { from { opacity:0; transform:translateY(6px); } }
+  @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
-<header><div>Hey <span>Guide</span></div><div class="mic" id="mic" aria-live="polite">Mic off</div></header>
-<main>
-  <section>
-    <h2>Live view</h2>
-    <img id="live" alt="Live camera view with detected objects">
-    <p class="muted" id="seen">Looking…</p>
-  </section>
-  <section>
-    <h2>Nearest obstacle</h2>
-    <div class="dist" id="dist" aria-live="polite">–</div>
-    <div id="obwhat" class="muted" style="text-transform:capitalize"></div>
-  </section>
-  <section>
-    <h2>Where are my things?</h2>
-    <div id="memory"></div>
-  </section>
-  <section>
-    <h2>Ask Hey Guide</h2>
-    <div class="log" id="log"></div>
-    <form id="ask">
-      <input id="q" placeholder="Where are my keys?" aria-label="Question">
-      <button>Ask</button>
-      <button type="button" id="talk" aria-label="Ask by voice">🎤</button>
-    </form>
-  </section>
-</main>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="orb" aria-hidden="true"></div>
+      <div><h1><span>Nova</span></h1><p>Sees the world, tells you out loud.</p></div>
+    </div>
+    <div class="pills">
+      <div class="pill" id="campill"><span class="dot"></span><span id="camtext">Camera connecting…</span></div>
+      <div class="pill" id="micpill" aria-live="polite"><span class="dot"></span><span id="mictext">Mic off</span></div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card live" aria-label="Live camera view">
+      <div class="frame">
+        <img id="live" alt="Live view from the chest camera">
+        <div class="empty" id="nocam">Waiting for the camera…</div>
+        <div class="badge-live"><span class="dot"></span>LIVE</div>
+        <div class="alert" id="alert" hidden></div>
+        <div class="seeing" id="seeing"></div>
+      </div>
+    </section>
+
+    <section class="card path" aria-label="Path ahead">
+      <h2>Path ahead</h2>
+      <div class="radar" id="radar">
+        <svg viewBox="0 0 200 110" aria-hidden="true">
+          <g id="wedges"></g>
+          <circle cx="100" cy="102" r="6" fill="url(#g)"/>
+          <defs><linearGradient id="g"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+        </svg>
+        <div class="readout">
+          <div class="big" id="dist" aria-live="polite">Clear</div>
+          <div class="what" id="obwhat">Nothing in your path</div>
+        </div>
+      </div>
+      <div class="meter"><i id="meter"></i></div>
+    </section>
+
+    <section class="card ask" aria-label="Ask Nova">
+      <h2>Ask Nova</h2>
+      <div class="composer">
+        <button class="mic" id="talk" aria-label="Ask by voice">🎤</button>
+        <form id="ask"><input id="q" placeholder="Where are my keys?" aria-label="Type a question" autocomplete="off"><button type="submit">Ask</button></form>
+      </div>
+      <div class="hints">
+        <button class="hint">Where are my keys?</button>
+        <button class="hint">What's in front of me?</button>
+        <button class="hint">Find my friend in the blue shirt</button>
+      </div>
+      <div class="chat" id="log" aria-live="polite"></div>
+    </section>
+
+    <section class="card things" aria-label="Where are my things">
+      <h2>Where are my things?</h2>
+      <div class="tiles" id="memory"></div>
+    </section>
+  </main>
+</div>
+
 <script>
-function ago(t, now){ const m=Math.floor((now-t)/60); return m<1?"just now":m+" min ago"; }
-async function refresh(){
-  try {
-    const s = await (await fetch("/api/state")).json();
-    document.getElementById("live").src = "/live.jpg?" + Date.now();
-    const mic = document.getElementById("mic");
-    mic.className = "mic " + s.mic;
-    mic.textContent = {idle:"Mic off", listening:"🔴 Listening…", thinking:"Thinking…", speaking:"Speaking"}[s.mic] || s.mic;
-    const d = s.distance_cm, el = document.getElementById("dist");
-    const ob = s.obstacle;  // [name, metres, direction] from the camera
-    el.textContent = d > 0 ? (d/100).toFixed(1) + " m" : "Clear";
-    document.getElementById("obwhat").textContent = ob ? `${ob[0]} · ${ob[2]}` : "Nothing in your path";
-    el.classList.toggle("close", d > 0 && d < 100);
-    document.getElementById("seen").textContent =
-      s.detections.length ? "Seeing: " + s.detections.map(x=>x.label).join(", ") : "Nothing tracked in view";
-    document.getElementById("memory").innerHTML = Object.entries(s.memory).sort((a, b) => b[1].time - a[1].time).map(([k,v]) =>
-      `<div class="obj"><img src="/memory/${v.image}?${v.time}" alt="${k}">
-       <div><b>${k}</b><div>${(v.described_at >= v.time - 90 ? (v.verified === false ? "Not confirmed – may have been a false sighting" : v.description) : v.near) || "Location not described yet"}</div>
-       <div class="muted">Seen ${ago(v.time, s.now)}</div></div></div>`).join("") || '<p class="muted">Nothing remembered yet.</p>';
-    const log = document.getElementById("log");
-    const html = s.log.slice().reverse().map(x =>  // newest first
-      `<div><div class="muted">${new Date(x.time*1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})} · ${x.question||"(voice)"}</div><div>${x.answer}</div></div>`).join("");
-    if (log.dataset.html !== html) { log.innerHTML = log.dataset.html = html; log.scrollTop = 0; }
-  } catch(e) {}
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ago = (t, now) => { const m = Math.floor((now - t) / 60); return m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.floor(m / 60) + " h ago"; };
+const clock = t => new Date(t * 1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+
+// Radar: five wedges from left to right, matching Nova's directions
+const ZONES = ["on your left", "slightly to your left", "straight ahead", "slightly to your right", "on your right"];
+(function drawWedges() {
+  const cx = 100, cy = 102, r = 96, g = $("wedges");
+  ZONES.forEach((z, i) => {
+    const a0 = Math.PI * (1 - i / 5), a1 = Math.PI * (1 - (i + 1) / 5);
+    const p = (a, rr) => `${cx + rr * Math.cos(a)},${cy - rr * Math.sin(a)}`;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M${p(a0, 14)} L${p(a0, r)} A${r},${r} 0 0 1 ${p(a1, r)} L${p(a1, 14)} A14,14 0 0 0 ${p(a0, 14)}Z`);
+    path.setAttribute("class", "wedge"); path.dataset.zone = z; g.appendChild(path);
+  });
+})();
+
+// Live image: load the next frame off-screen, then swap, so it never flickers
+let camOk = false;
+function nextFrame() {
+  const img = new Image();
+  img.onload = () => { $("live").src = img.src; camOk = true; $("nocam").hidden = true; setTimeout(nextFrame, 150); };
+  img.onerror = () => { camOk = false; $("nocam").hidden = false; setTimeout(nextFrame, 1000); };
+  img.src = "/live.jpg?" + Date.now();
 }
-document.getElementById("ask").onsubmit = async e => {
-  e.preventDefault();
-  const q = document.getElementById("q").value; if(!q) return;
-  document.getElementById("q").value = "";
-  await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});
+nextFrame();
+
+let lastLog = "", lastThings = "";
+async function refresh() {
+  let s;
+  try { s = await (await fetch("/api/state")).json(); } catch (e) { $("camtext").textContent = "Nova offline"; $("campill").className = "pill"; return; }
+
+  $("campill").className = "pill" + (camOk ? " on" : "");
+  $("camtext").textContent = camOk ? "Camera live" : "Camera connecting…";
+  $("micpill").className = "pill " + s.mic;
+  $("mictext").textContent = {idle:"Mic off", listening:"Listening…", thinking:"Thinking…", speaking:"Speaking"}[s.mic] || s.mic;
+  $("talk").className = "mic " + s.mic;
+
+  // Detected things on the live view
+  const seen = [...new Set(s.detections.map(d => d.label))];
+  $("seeing").innerHTML = seen.map(l => `<span class="chip">${esc(l)}</span>`).join("");
+
+  // Path ahead
+  const ob = s.obstacle, d = s.distance_cm / 100;
+  const radar = $("radar").parentElement;
+  radar.classList.toggle("near", d > 0 && d < 1);
+  radar.classList.toggle("mid", d >= 1 && d < 2.5);
+  $("dist").textContent = d > 0 ? d.toFixed(1) + " m" : "Clear";
+  $("obwhat").textContent = ob ? `${ob[0]} · ${ob[2]}` : "Nothing in your path";
+  $("meter").style.width = d > 0 ? Math.max(6, Math.min(100, (1 - d / 4) * 100)) + "%" : "0%";
+  const hit = d < 1 ? "var(--danger)" : d < 2.5 ? "var(--warn)" : "var(--a2)";
+  document.querySelectorAll(".wedge").forEach(w => {
+    w.classList.toggle("hit", !!ob && w.dataset.zone === ob[2]);
+    w.style.setProperty("--hit", hit);
+  });
+  $("alert").hidden = !(ob && d > 0 && d < 1);
+  if (ob) $("alert").textContent = `⚠ ${ob[0]} ${d.toFixed(1)} m`;
+
+  // Conversation, newest first
+  const log = s.log.slice().reverse().map(x => `<div class="turn">
+      <div class="q">${esc(x.question || "🎤 (voice)")}</div>
+      <div class="a">${esc(x.answer)}</div>
+      <div class="meta">${clock(x.time)}</div></div>`).join("") || '<div class="nochat">Press 🎤 or type a question to start.</div>';
+  if (log !== lastLog) { $("log").innerHTML = lastLog = log; $("log").scrollTop = 0; }
+
+  // Remembered things, most recently seen first
+  const things = Object.entries(s.memory).sort((a, b) => b[1].time - a[1].time).map(([k, v]) => {
+    const checked = v.described_at >= v.time - 90;
+    const where = checked ? (v.verified === false ? "Not confirmed – may have been a false sighting" : v.description) : v.near;
+    const tag = checked ? (v.verified === false ? '<span class="tag unsure">⚠ Unconfirmed</span>' : '<span class="tag ok">✓ Verified</span>') : "";
+    const fresh = s.now - v.time < 10 ? " fresh" : "";
+    return `<div class="tile${fresh}"><img src="/memory/${encodeURIComponent(v.image)}?${v.time}" alt="${esc(k)}" loading="lazy">
+      <div class="body"><div class="name">${esc(k)}${tag}</div>
+      <div class="where">${esc(where || "Location not described yet")}</div>
+      <div class="when">Seen ${ago(v.time, s.now)}</div></div></div>`;
+  }).join("") || '<p class="nochat">Nothing remembered yet. Show Nova your keys!</p>';
+  if (things !== lastThings) $("memory").innerHTML = lastThings = things;
+}
+
+async function ask(q) {
+  if (!q) return;
+  $("q").value = "";
+  await fetch("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({question:q})});
   refresh();
-};
-document.getElementById("talk").onclick = () => fetch("/api/listen", {method:"POST"});
+}
+$("ask").onsubmit = e => { e.preventDefault(); ask($("q").value.trim()); };
+document.querySelectorAll(".hint").forEach(b => b.onclick = () => ask(b.textContent));
+$("talk").onclick = () => fetch("/api/listen", {method:"POST"});
 setInterval(refresh, 500); refresh();
 </script>
 </body>

@@ -116,7 +116,7 @@ def camera_loop():
             cv2.rectangle(annotated, (0, 0), (annotated.shape[1], 50), colour, -1)
             cv2.putText(annotated, mic.upper(), (15, 36), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (255, 255, 255), 3)
         state["live_jpg"] = cv2.imencode(".jpg", annotated)[1].tobytes()
-        cv2.imshow("Hey Guide", annotated)
+        cv2.imshow("Nova", annotated)
         key = cv2.waitKey(1) & 0xFF
         if key == ord(" "):  # spacebar = backup trigger
             threading.Thread(target=on_wake, daemon=True).start()
