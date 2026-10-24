@@ -43,7 +43,11 @@ class Assistant:
 
     def answer(self, intent, memory, live_frame_jpg):
         if intent == "scene":
+            if live_frame_jpg is None:
+                return "The camera isn't ready yet."
             return self.describe_scene(live_frame_jpg)
+        if intent not in self.objects:
+            return "Sorry, I didn't catch that. Try asking where something is."
         item = memory.get(intent)
         if not item:
             return f"I haven't seen your {intent} yet."
