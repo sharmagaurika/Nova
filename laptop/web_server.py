@@ -6,7 +6,7 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "web")
 
 
-def create_app(state, memory, handle_question):
+def create_app(state, memory, handle_question, on_listen):
     app = Flask(__name__)
 
     @app.route("/")
@@ -17,6 +17,7 @@ def create_app(state, memory, handle_question):
     def api_state():
         return jsonify({
             "distance_cm": state["distance_cm"](),
+            "mic": state["mic"](),
             "detections": state["detections"],
             "log": state["log"][-20:],
             "memory": memory.items,
@@ -30,7 +31,12 @@ def create_app(state, memory, handle_question):
     @app.route("/api/ask", methods=["POST"])
     def api_ask():
         text = request.json.get("question", "")
-        return jsonify({"answer": handle_question(text=text, speak=False)})
+        return jsonify({"answer": handle_question(text=text, speak=True)})
+
+    @app.route("/api/listen", methods=["POST"])
+    def api_listen():
+        on_listen()  # same as pressing SPACE / the wristband button
+        return "", 204
 
     @app.route("/live.jpg")
     def live():

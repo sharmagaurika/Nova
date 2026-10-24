@@ -20,14 +20,20 @@
   .obj img { width:96px; height:72px; object-fit:cover; border-radius:8px; background:#000; }
   .obj b { text-transform:capitalize; }
   .muted { color:var(--muted); font-size:15px; }
-  .log div { border-bottom:1px solid #2c2f55; padding:8px 0; }
+  .log { max-height:320px; overflow-y:auto; }
+  .log > div { border-bottom:1px solid #2c2f55; padding:8px 0; }
   form { display:flex; gap:8px; margin-top:12px; }
   input { flex:1; padding:12px; border-radius:10px; border:none; font-size:18px; }
   button { padding:12px 18px; border-radius:10px; border:none; background:var(--accent); font-weight:700; font-size:18px; }
+  header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .mic { font-size:16px; font-weight:700; padding:6px 14px; border-radius:999px; background:#2c2f55; color:var(--muted); }
+  .mic.listening { background:#e53935; color:#fff; }
+  .mic.thinking { background:#ffb300; color:#000; }
+  .mic.speaking { background:#43a047; color:#fff; }
 </style>
 </head>
 <body>
-<header>Hey <span>Guide</span></header>
+<header><div>Hey <span>Guide</span></div><div class="mic" id="mic" aria-live="polite">Mic off</div></header>
 <main>
   <section>
     <h2>Live view</h2>
@@ -48,6 +54,7 @@
     <form id="ask">
       <input id="q" placeholder="Where are my keys?" aria-label="Question">
       <button>Ask</button>
+      <button type="button" id="talk" aria-label="Ask by voice">🎤</button>
     </form>
   </section>
 </main>
@@ -57,17 +64,22 @@ async function refresh(){
   try {
     const s = await (await fetch("/api/state")).json();
     document.getElementById("live").src = "/live.jpg?" + Date.now();
+    const mic = document.getElementById("mic");
+    mic.className = "mic " + s.mic;
+    mic.textContent = {idle:"Mic off", listening:"🔴 Listening…", thinking:"Thinking…", speaking:"Speaking"}[s.mic] || s.mic;
     const d = s.distance_cm, el = document.getElementById("dist");
     el.textContent = d > 0 ? (d/100).toFixed(1) + " m" : "Clear";
     el.classList.toggle("close", d > 0 && d < 60);
     document.getElementById("seen").textContent =
       s.detections.length ? "Seeing: " + s.detections.map(x=>x.label).join(", ") : "Nothing tracked in view";
-    document.getElementById("memory").innerHTML = Object.entries(s.memory).map(([k,v]) =>
+    document.getElementById("memory").innerHTML = Object.entries(s.memory).sort((a, b) => b[1].time - a[1].time).map(([k,v]) =>
       `<div class="obj"><img src="/memory/${v.image}?${v.time}" alt="${k}">
-       <div><b>${k}</b><div>${v.description||"Location not described yet"}</div>
+       <div><b>${k}</b><div>${(v.described_at >= v.time - 90 ? (v.verified === false ? "Not confirmed – may have been a false sighting" : v.description) : v.near) || "Location not described yet"}</div>
        <div class="muted">Seen ${ago(v.time, s.now)}</div></div></div>`).join("") || '<p class="muted">Nothing remembered yet.</p>';
-    document.getElementById("log").innerHTML = s.log.slice().reverse().map(x =>
-      `<div><div class="muted">${x.question||"(voice)"}</div><div>${x.answer}</div></div>`).join("");
+    const log = document.getElementById("log");
+    const html = s.log.slice().reverse().map(x =>  // newest first
+      `<div><div class="muted">${new Date(x.time*1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})} · ${x.question||"(voice)"}</div><div>${x.answer}</div></div>`).join("");
+    if (log.dataset.html !== html) { log.innerHTML = log.dataset.html = html; log.scrollTop = 0; }
   } catch(e) {}
 }
 document.getElementById("ask").onsubmit = async e => {
@@ -77,7 +89,8 @@ document.getElementById("ask").onsubmit = async e => {
   await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});
   refresh();
 };
-setInterval(refresh, 1000); refresh();
+document.getElementById("talk").onclick = () => fetch("/api/listen", {method:"POST"});
+setInterval(refresh, 500); refresh();
 </script>
 </body>
 </html>
