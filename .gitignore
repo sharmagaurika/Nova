@@ -3,7 +3,11 @@ __pycache__/
 *.pyc
 .venv/
 data/photos/
+data/own/
 memory/*.jpg
 memory/*.json
 *.zip
+yolov8*.pt
+models/best_v*.pt
+weights/
 .DS_Store
