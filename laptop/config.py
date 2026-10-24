@@ -4,7 +4,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")  # 2.5-flash isn't offered to new keys
+GEMINI_FAST_MODEL = os.getenv("GEMINI_FAST_MODEL", GEMINI_MODEL)  # understanding questions
+
+# Offline English speech-to-text for voice questions (tiny.en is faster, base.en hears better)
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base.en")
 
 _cam = os.getenv("CAMERA_SOURCE", "0")
 CAMERA_SOURCE = int(_cam) if _cam.isdigit() else _cam
@@ -18,7 +22,8 @@ MEMORY_DIR = os.path.join(os.path.dirname(__file__), "..", "memory")
 MODEL_PATH = os.getenv("MODEL_PATH", "yolov8s.pt")  # downloaded automatically on first run
 CONFIDENCE = 0.4
 
-# Objects we remember: {COCO class name: name we use}
+# Objects we remember: {COCO class name: name we use}. The stock model also reports
+# every other COCO object (people, chairs...) for scene descriptions and the friend finder.
 TRACKED = {"bottle": "bottle", "cup": "cup", "backpack": "backpack", "laptop": "laptop", "umbrella": "umbrella"}
 # Optional stricter cut-offs for objects that get confused, e.g. {"cup": 0.6}
 MIN_CONF = {}
@@ -32,4 +37,8 @@ if not USE_CUSTOM:
     print("models/best.pt not found - keys/wallet/phone off until it's trained")
 
 OBJECTS = list(TRACKED.values()) + (list(CUSTOM_TRACKED.values()) if USE_CUSTOM else [])
-RECORD_SECONDS = 4
+RECORD_SECONDS = 7  # longest a question can be; recording stops early once you go quiet
+
+# Friend finder: how long to keep guiding, and how often to check
+FINDER_SECONDS = 45
+FINDER_EVERY_S = 1.5

@@ -4,13 +4,14 @@ from ultralytics import YOLO
 
 
 class Detector:
-    def __init__(self, model_path, confidence, tracked, min_conf=None):
-        """tracked: {model class name: name we use}, e.g. {"cell phone": "phone"}.
+    def __init__(self, model_path, confidence, tracked=None, min_conf=None):
+        """tracked: {model class name: name we use}, e.g. {"cell phone": "phone"}; None = every class.
         min_conf: optional stricter cut-off per name we use, e.g. {"phone": 0.6}."""
         self.model = YOLO(model_path)
         self.confidence = confidence
         self.min_conf = min_conf or {}
         name_to_id = {n: i for i, n in self.model.names.items()}
+        tracked = tracked or {n: n for n in name_to_id}
         self.labels = {name_to_id[n]: ours for n, ours in tracked.items()}
 
     def detect(self, frame):

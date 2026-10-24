@@ -6,6 +6,7 @@ data/photos/
 data/own/
 memory/*.jpg
 memory/*.json
+memory/*.wav
 *.zip
 yolov8*.pt
 models/best_v*.pt

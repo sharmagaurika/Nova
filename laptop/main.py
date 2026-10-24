@@ -1,31 +1,47 @@
 """Hey Guide – runs camera, memory, Nano serial, Gemini and the companion app."""
+import os
 import threading
 import time
 import cv2
 
 import config
 from assistant import Assistant
+from camera import Camera
+import scene
 from detector import Detector, draw
+from finder import Finder
 from memory import Memory
+from speech import Transcriber
+import voice
 from voice import beep, record_wav, say
 from web_server import create_app
 
 memory = Memory(config.MEMORY_DIR)
-assistant = Assistant(config.GEMINI_API_KEY, config.GEMINI_MODEL, config.OBJECTS)
+assistant = Assistant(config.GEMINI_API_KEY, config.GEMINI_MODEL, config.OBJECTS, config.GEMINI_FAST_MODEL,
+                      Transcriber(config.WHISPER_MODEL, config.OBJECTS))
 nano = None
 
 state = {
-    "detections": [],
+    "detections": [],       # tracked objects in view, for the companion app
+    "all_detections": [],   # everything the models see: (label, conf, box)
+    "frame": None,          # latest raw camera frame
     "log": [],
     "live_jpg": None,
     "distance_cm": lambda: nano.distance_cm if nano else -1,
+    "mic": lambda: voice.status["mic"],
 }
+finder = Finder(state, config.FINDER_SECONDS, config.FINDER_EVERY_S)
+assistant.describe_in_background(memory)
 busy = threading.Lock()
 
 
 def handle_question(wav=None, text=None, speak=True):
     intent, said = assistant.classify(wav_bytes=wav, text=text)
-    answer = assistant.answer(intent, memory, state["live_jpg"])
+    print(f"Heard: {said!r} -> {intent}")
+    if wav:  # keep the last recording, handy for checking what the mic picked up
+        with open(os.path.join(config.MEMORY_DIR, "last_question.wav"), "wb") as f:
+            f.write(wav)
+    answer = assistant.answer(intent, memory, state, finder)
     state["log"].append({"time": time.time(), "question": said, "answer": answer})
     if speak:
         say(answer)
@@ -36,32 +52,44 @@ def on_wake():
     if not busy.acquire(blocking=False):
         return  # already answering
     try:
-        beep()
-        wav = record_wav(config.RECORD_SECONDS)
+        wav = record_wav(config.RECORD_SECONDS)  # beeps once the mic is on
         beep(660)
-        handle_question(wav=wav)
+        if wav is None:
+            say("I didn't hear anything.")
+        else:
+            handle_question(wav=wav)
     except Exception as e:
         print("Error:", e)
         say("Sorry, something went wrong.")
     finally:
+        if voice.status["mic"] == "thinking":
+            voice.status["mic"] = "idle"
         busy.release()
 
 
 def camera_loop():
-    detectors = [Detector(config.MODEL_PATH, config.CONFIDENCE, config.TRACKED, config.MIN_CONF)]
-    if config.USE_CUSTOM:
-        detectors.append(Detector(config.CUSTOM_MODEL_PATH, config.CUSTOM_CONFIDENCE, config.CUSTOM_TRACKED))
-    cap = cv2.VideoCapture(config.CAMERA_SOURCE)
+    stock = Detector(config.MODEL_PATH, config.CONFIDENCE)  # every COCO object
+    custom = (Detector(config.CUSTOM_MODEL_PATH, config.CUSTOM_CONFIDENCE, config.CUSTOM_TRACKED)
+              if config.USE_CUSTOM else None)
+    cam, seq = Camera(config.CAMERA_SOURCE), -1
     while True:
-        ok, frame = cap.read()
-        if not ok:
-            time.sleep(0.5)
-            continue
-        found = [f for d in detectors for f in d.detect(frame)]
-        annotated = draw(frame, found)
+        seq, frame = cam.read(seq)  # always the newest frame, so the view never lags behind
+        everything = [(config.TRACKED.get(l, l), c, b) for l, c, b in stock.detect(frame)
+                      if c >= config.MIN_CONF.get(config.TRACKED.get(l, l), 0)]
+        if custom:
+            everything += custom.detect(frame)
+        found = [f for f in everything if f[0] in config.OBJECTS]
+        people = [f for f in everything if f[0] == "person"]
+        state["frame"], state["all_detections"] = frame, everything
+        annotated = draw(frame, found + people)
         state["detections"] = [{"label": l, "conf": round(c, 2)} for l, c, _ in found]
-        for label, _, _ in found:
-            memory.remember(label, frame)
+        for label, _, box in found:
+            memory.remember(label, frame, scene.near(label, box, everything))
+        mic = voice.status["mic"]
+        if mic != "idle":  # big banner so it's obvious when the mic is on
+            colour = {"listening": (0, 0, 255), "thinking": (0, 200, 255), "speaking": (0, 200, 0)}[mic]
+            cv2.rectangle(annotated, (0, 0), (annotated.shape[1], 50), colour, -1)
+            cv2.putText(annotated, mic.upper(), (15, 36), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (255, 255, 255), 3)
         state["live_jpg"] = cv2.imencode(".jpg", annotated)[1].tobytes()
         cv2.imshow("Hey Guide", annotated)
         key = cv2.waitKey(1) & 0xFF
@@ -69,7 +97,6 @@ def camera_loop():
             threading.Thread(target=on_wake, daemon=True).start()
         elif key == ord("q"):
             break
-    cap.release()
     cv2.destroyAllWindows()
 
 
@@ -82,7 +109,8 @@ if __name__ == "__main__":
     except Exception as e:
         print("Nano not connected (press SPACE to ask instead):", e)
 
-    app = create_app(state, memory, handle_question)
+    app = create_app(state, memory, handle_question,
+                     lambda: threading.Thread(target=on_wake, daemon=True).start())
     threading.Thread(target=lambda: app.run(host="0.0.0.0", port=5000), daemon=True).start()
     print("Companion app: http://localhost:5000")
     camera_loop()
