@@ -100,6 +100,17 @@ def nearest_obstacle(detections, shape, hfov_deg):
     return best
 
 
+def merge_obstacles(named, depth):
+    """Combine the object-detection estimate (named) with the depth model's (metres, direction).
+    Depth sees walls and anything else; a named object close to the same distance keeps its name."""
+    if not depth:
+        return named
+    metres, where = depth
+    if named and named[1] <= metres + 0.5:
+        return named[0], min(named[1], metres), named[2]
+    return "obstacle", metres, where
+
+
 SURFACES = {"dining table": "table", "bed": "bed", "couch": "couch", "chair": "chair", "bench": "bench"}
 
 

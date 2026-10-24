@@ -43,6 +43,11 @@ RECORD_SECONDS = 7  # longest a question can be; recording stops early once you 
 CAMERA_HFOV_DEG = 65   # phone main camera's horizontal field of view
 OBSTACLE_WARN_M = 2.5
 OBSTACLE_SAY_M = 1.0
+# Metric depth model, so walls, doors and anything else close are caught too (set USE_DEPTH=0 to turn off)
+USE_DEPTH = os.getenv("USE_DEPTH", "1") == "1"
+DEPTH_MODEL = "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf"
+DEPTH_SIZE = 252   # model input size: 252 checks ~1.4x a second on a laptop
+DEPTH_SCALE = float(os.getenv("DEPTH_SCALE", "1.0"))  # calibrate: true distance / distance Nova shows
 
 # Friend finder: how long to keep guiding, and how often to check
 FINDER_SECONDS = 45

@@ -7,6 +7,7 @@ import cv2
 import config
 from assistant import Assistant
 from camera import Camera
+from depth import DepthWatcher
 import scene
 from detector import Detector, draw
 from finder import Finder
@@ -35,6 +36,8 @@ state = {
 alerts = {"beep": 0, "said": 0, "said_what": None}
 finder = Finder(state, config.FINDER_SECONDS, config.FINDER_EVERY_S)
 assistant.describe_in_background(memory)
+depth_watch = (DepthWatcher(state, config.DEPTH_MODEL, config.DEPTH_SIZE, config.DEPTH_SCALE)
+               if config.USE_DEPTH else None)
 busy = threading.Lock()
 
 
@@ -104,7 +107,9 @@ def camera_loop():
         state["detections"] = [{"label": l, "conf": round(c, 2)} for l, c, _ in found]
         for label, _, box in found:
             memory.remember(label, frame, scene.near(label, box, everything))
-        state["obstacle"] = scene.nearest_obstacle(everything, frame.shape, config.CAMERA_HFOV_DEG)
+        state["obstacle"] = scene.merge_obstacles(
+            scene.nearest_obstacle(everything, frame.shape, config.CAMERA_HFOV_DEG),
+            depth_watch.nearest if depth_watch and depth_watch.ok else None)
         warn_obstacle(state["obstacle"])
         if state["obstacle"] and state["obstacle"][1] < config.OBSTACLE_WARN_M:
             name, metres, _ = state["obstacle"]
