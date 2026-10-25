@@ -32,8 +32,9 @@ state = {
     "distance_cm": lambda: (nano.distance_cm if nano else
                             state["obstacle"][1] * 100 if state["obstacle"] else -1),
     "mic": lambda: voice.status["mic"],
+    "warnings_on": lambda: alerts["on"],
 }
-alerts = {"beep": 0, "said": 0, "said_what": None}
+alerts = {"beep": 0, "said": 0, "said_what": None, "quiet_until": 0, "on": True}
 finder = Finder(state, config.FINDER_SECONDS, config.FINDER_EVERY_S)
 assistant.describe_in_background(memory)
 depth_watch = (DepthWatcher(state, config.DEPTH_MODEL, config.DEPTH_SIZE, config.DEPTH_SCALE)
@@ -42,6 +43,8 @@ busy = threading.Lock()
 
 
 def handle_question(wav=None, text=None, speak=True):
+    alerts["quiet_until"] = time.time() + 30  # no obstacle chatter while answering
+    voice.hush()
     intent, said = assistant.classify(wav_bytes=wav, text=text)
     print(f"Heard: {said!r} -> {intent}")
     if wav:  # keep the last recording, handy for checking what the mic picked up
@@ -51,6 +54,7 @@ def handle_question(wav=None, text=None, speak=True):
     state["log"].append({"time": time.time(), "question": said, "answer": answer})
     if speak:
         say(answer)
+    alerts["quiet_until"] = time.time() + 6
     return answer
 
 
@@ -58,6 +62,7 @@ def on_wake():
     if not busy.acquire(blocking=False):
         return  # already answering
     try:
+        voice.hush()  # stop obstacle warnings first, so the mic doesn't hear Nova talking
         wav = record_wav(config.RECORD_SECONDS)  # beeps once the mic is on
         beep(660)
         if wav is None:
@@ -70,16 +75,20 @@ def on_wake():
     finally:
         if voice.status["mic"] == "thinking":
             voice.status["mic"] = "idle"
+        alerts["quiet_until"] = time.time() + 6  # give the answer room before warnings resume
         busy.release()
 
 
 def warn_obstacle(obstacle):
     """Say what's in the way (and "Stop" when very close); beep as an early heads-up."""
-    if not obstacle or voice.status["mic"] != "idle" or finder.colour:
-        return  # don't talk over questions, answers or friend-finder guidance
-    name, metres, where = obstacle
     now = time.time()
-    if metres < config.OBSTACLE_SAY_M:
+    if (not obstacle or not alerts["on"] or busy.locked() or now < alerts["quiet_until"]
+            or voice.status["mic"] != "idle" or finder.colour):
+        return  # muted, or don't talk over questions, answers or friend-finder guidance
+    name, metres, where = obstacle
+    # Unnamed obstacles (depth model) are only spoken when very close; sitting at a desk they're everywhere
+    say_below = config.OBSTACLE_STOP_M if name == "obstacle" else config.OBSTACLE_SAY_M
+    if metres < say_below:
         stop = metres < config.OBSTACLE_STOP_M
         key = (name, stop)  # not direction: it flickers as you move
         # Speak when the obstacle or its zone changes, otherwise repeat now and then
@@ -132,6 +141,9 @@ def camera_loop():
         key = cv2.waitKey(1) & 0xFF
         if key == ord(" "):  # spacebar = backup trigger
             threading.Thread(target=on_wake, daemon=True).start()
+        elif key == ord("m"):  # mute / unmute obstacle warnings
+            alerts["on"] = not alerts["on"]
+            print("Obstacle warnings", "on" if alerts["on"] else "muted")
         elif key == ord("q"):
             break
     cv2.destroyAllWindows()
@@ -147,7 +159,8 @@ if __name__ == "__main__":
         print("Nano not connected (press SPACE to ask instead):", e)
 
     app = create_app(state, memory, handle_question,
-                     lambda: threading.Thread(target=on_wake, daemon=True).start())
+                     lambda: threading.Thread(target=on_wake, daemon=True).start(),
+                     lambda: alerts.update(on=not alerts["on"]))
     threading.Thread(target=lambda: app.run(host="0.0.0.0", port=5000), daemon=True).start()
     print("Companion app: http://localhost:5000")
     camera_loop()

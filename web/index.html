@@ -96,6 +96,9 @@
   .dist { font-size:34px; font-weight:800; letter-spacing:-1px; line-height:1.05; }
   .what { color:var(--muted); font-size:14px; }
   .what::first-letter { text-transform:uppercase; }
+  .toggle { padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:var(--raised); color:var(--ok);
+            font:inherit; font-size:12px; font-weight:600; letter-spacing:0; text-transform:none; cursor:pointer; }
+  .toggle[aria-pressed="false"] { color:var(--faint); }
   .lanes { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:10px; }
   .lane { height:5px; border-radius:3px; background:var(--raised); transition:background .25s; }
   .lane.hit { background:var(--pc, var(--nova)); }
@@ -173,7 +176,7 @@
       </section>
 
       <section class="panel path" id="path" aria-label="Path ahead">
-        <div class="head">Path ahead <small id="pathsrc">Camera</small></div>
+        <div class="head">Path ahead <button class="toggle" id="warn" aria-pressed="true">Spoken warnings on</button></div>
         <div class="body">
           <svg class="gauge" viewBox="0 0 100 100" aria-hidden="true">
             <circle class="track" cx="50" cy="50" r="40"/><circle class="fill" id="gfill" cx="50" cy="50" r="40" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
@@ -236,6 +239,9 @@ async function refresh() {
   const seen = [...new Set(s.detections.map(d => d.label))];
   $("seen").innerHTML = seen.map(l => `<span>${esc(l)}</span>`).join("");
 
+  $("warn").setAttribute("aria-pressed", s.warnings_on);
+  $("warn").textContent = s.warnings_on ? "Spoken warnings on" : "Spoken warnings muted";
+
   // Path ahead
   const ob = s.obstacle, d = s.distance_cm / 100, near = d > 0 && d < 1, mid = d >= 1 && d < 2.5;
   const pc = near ? "var(--danger)" : mid ? "var(--warn)" : "var(--nova)";
@@ -278,6 +284,7 @@ async function ask(q) {
 $("ask").onsubmit = e => { e.preventDefault(); ask($("q").value.trim()); };
 document.querySelectorAll(".tries button").forEach(b => b.onclick = () => ask(b.textContent));
 $("talk").onclick = () => fetch("/api/listen", {method:"POST"});
+$("warn").onclick = () => fetch("/api/warnings", {method:"POST"}).then(refresh);
 setInterval(refresh, 400); refresh();
 </script>
 </body>

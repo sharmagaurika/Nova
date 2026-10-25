@@ -2,6 +2,7 @@
 import io
 import queue
 import threading
+import time
 import wave
 import numpy as np
 import pyttsx3
@@ -88,6 +89,19 @@ threading.Thread(target=_speaker, daemon=True).start()
 def busy():
     """True while something is being said or waiting to be said."""
     return status["mic"] == "speaking" or not _speech.empty()
+
+
+def hush(timeout=6):
+    """Drop anything waiting to be said and wait for the current sentence to finish."""
+    while True:
+        try:
+            _, done = _speech.get_nowait()
+            done.set()
+        except queue.Empty:
+            break
+    end = time.time() + timeout
+    while status["mic"] == "speaking" and time.time() < end:
+        time.sleep(0.05)
 
 
 def say(text):

@@ -6,7 +6,7 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "web")
 
 
-def create_app(state, memory, handle_question, on_listen):
+def create_app(state, memory, handle_question, on_listen, on_toggle_warnings=lambda: None):
     app = Flask(__name__)
 
     @app.route("/")
@@ -18,6 +18,7 @@ def create_app(state, memory, handle_question, on_listen):
         return jsonify({
             "distance_cm": state["distance_cm"](),
             "obstacle": state["obstacle"],
+            "warnings_on": state["warnings_on"](),
             "mic": state["mic"](),
             "detections": state["detections"],
             "log": state["log"][-20:],
@@ -37,6 +38,11 @@ def create_app(state, memory, handle_question, on_listen):
     @app.route("/api/listen", methods=["POST"])
     def api_listen():
         on_listen()  # same as pressing SPACE / the wristband button
+        return "", 204
+
+    @app.route("/api/warnings", methods=["POST"])
+    def api_warnings():
+        on_toggle_warnings()  # same as M in the camera window
         return "", 204
 
     @app.route("/live.jpg")
