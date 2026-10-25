@@ -8,3 +8,4 @@ pyttsx3
 flask
 python-dotenv
 faster-whisper
+transformers

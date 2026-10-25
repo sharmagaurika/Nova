@@ -1,61 +1,90 @@
-# Hey Guide 👁️‍🗨️
+# Nova
 
-A wearable assistant for blind and low-vision people that **warns about obstacles** and **remembers where you left your things**.
+**Your eyes, out loud.** Nova is a wearable assistant for blind and low-vision people. A phone on your chest is its camera; Nova watches the world, remembers where you left things, warns you before you walk into something, and helps you find your friends, all by voice.
 
-> "Hey Guide, where are my keys?" → "On the desk, next to the laptop. Seen 3 minutes ago."
+> "Nova, where are my keys?"  →  "On the wooden table, next to the laptop. Seen 3 minutes ago."
+>
+> "Find my friend in the red hoodie."  →  "Slightly to your left… straight ahead… You've reached the person in red."
+>
+> *(walking)*  →  "Chair on your right, 1.7 metres." … "Stop. Obstacle straight ahead, 0.8 metres."
 
 ## What it does
-1. **Obstacle alerts** – an ultrasonic sensor on the wrist beeps faster as you get closer to something.
-2. **Object memory** – a chest camera runs our trained model to spot keys, wallet and glasses, and remembers where it last saw each one.
-3. **Ask anything** – say "Hey Guide" (wake word model running *on the Arduino*), ask your question, and Gemini answers in your earphones.
-4. **Companion app** – a web page showing the live view, object memory and conversation log, for the user or a caregiver.
 
-## The AI
-| Model | Where it runs | What it does |
-|---|---|---|
-| Wake word ("Hey Guide") | Arduino Nano 33 BLE Sense Lite | Trained by us in Edge Impulse, fully on-device |
-| Object detector (keys / wallet / glasses) | Laptop | YOLOv8 trained by us on our own photos |
-| Gemini Flash | Cloud | Understands the question and describes where the object is |
+| Feature | How it works |
+|---|---|
+| **Remembers your things** | Two YOLOv8 models watch the camera: a stock model (bottle, cup, backpack, laptop, umbrella) and one **we trained** on keys, wallets and phones, fine-tuned on our own photos. Nova saves where each item was last seen. |
+| **Never makes up a location** | Gemini looks at each saved sighting in the background and describes it ("on the wooden table, near the white tag"). If the item isn't really in the photo, Nova says it isn't sure instead of guessing. |
+| **Warns about obstacles, even walls** | A metric depth model (Depth Anything V2) estimates distance to anything in your walking path. Named things (people, chairs, tables) are announced from 2 m, and anything under 1 m triggers "Stop". |
+| **Finds a friend by what they're wearing** | Nova finds people, reads their shirt colour, and guides you by voice until you reach them. |
+| **Describes the scene** | "What's in front of me?" gets a short spoken description (Gemini, with an offline fallback built from what the camera detects). |
+| **Understands you offline** | Speech-to-text runs on the laptop with Whisper, and an offline parser works out the question, so voice works without internet or API quota. |
+| **Companion app** | A live dashboard at `http://localhost:5000` for caregivers and demos: Nova's animated orb (listening / thinking / speaking), live view, path-ahead gauge, belongings with verified/unconfirmed badges, and history. |
 
-## Hardware
-- Arduino Nano 33 BLE Sense Lite (TinyML kit)
-- HC-SR04P ultrasonic sensor
-- Passive buzzer
-- Phone as chest camera (DroidCam / IP Webcam)
-- Laptop + earphones with mic
+## How to talk to Nova
+
+Press **SPACE** in the camera window, or click the **orb** in the companion app, then speak after the beep. Recording stops when you stop talking.
+
+- "Where are my keys?" / "Where's my wallet?" / "Where is my bottle?"
+- "What's in front of me?"
+- "Find my friend in the blue shirt" (any of: red, orange, yellow, green, blue, purple, pink, white, black, grey, brown)
+- "Stop" to end a friend search
+
+Other keys in the camera window: **M** mutes or unmutes spoken obstacle warnings (handy while sitting), **Q** quits.
+
+## Setup (Windows)
+
+```bash
+python -m venv .venv
+.venv\Scripts\python -m pip install -r laptop/requirements.txt
+copy laptop\.env.example laptop\.env     # then edit it, see below
+cd laptop
+..\.venv\Scripts\python main.py
+```
+
+Then open **http://localhost:5000**. The first start downloads the YOLO, Whisper and depth models (a few hundred MB) and takes a minute; later starts take about 15 seconds.
+
+**`laptop/.env`:**
+
+| Setting | What it's for |
+|---|---|
+| `GEMINI_API_KEY` | From [Google AI Studio](https://aistudio.google.com/apikey). Optional: without it, scene descriptions and item checks fall back to offline versions. |
+| `CAMERA_SOURCE` | The phone stream, e.g. `http://192.168.1.50:8080/video` from the **IP Webcam** app (1280×720, quality 50 works well), or `0` for a webcam. Phone and laptop must be on the same network. |
+| `GEMINI_MODEL` | Optional. Defaults to `gemini-3.1-flash-lite`. |
+| `DEPTH_SCALE` | Optional calibration. Stand 1 m from a wall; if Nova says 1.5 m, set `0.67`. |
+| `USE_DEPTH` | Optional. Set to `0` to turn the depth model off on slower laptops. |
+
+## Training our own model
+
+1. `laptop/collect.py` takes labelled photos with the camera: press 1/2/3 for keys/wallet/phone, SPACE to freeze, drag a box, ENTER to save.
+2. `models/train_nova.ipynb` trains on Roboflow keys, wallet and phone photos in Google Colab.
+3. `models/finetune_nova.ipynb` tops it up with our own photos (about 5 minutes on a free GPU). The result goes in `models/best.pt`.
+
+On our held-out photos, fine-tuning raised accuracy (mAP50) from 0.00 to 0.43 for keys, 0.19 to 0.54 for wallets and 0.00 to 0.99 for phones.
 
 ## Repo layout
+
 ```
-firmware/
-  obstacle_beeper/     Step 1 – ultrasonic + buzzer
-  hey_guide_wrist/     Step 2 – beeper + wake word model (final firmware)
 laptop/
-  main.py              runs everything
-  config.py            settings (camera URL, serial port, API key)
-  nano_serial.py       reads DIST / WAKE messages from the Nano
-  detector.py          YOLO object detection on the camera feed
-  memory.py            remembers where each object was last seen
-  assistant.py         Gemini: understand question + describe location
-  voice.py             mic recording + text-to-speech
-  web_server.py        API for the companion app
-web/
-  index.html           companion app
-models/                put trained best.pt here
-data/photos/           training photos (not committed)
-memory/                saved last-seen frames (not committed)
-docs/                  wiring + demo script
+  main.py          runs everything: camera, detection, warnings, voice, app
+  config.py        settings
+  assistant.py     understands questions and answers them
+  speech.py        offline speech-to-text (Whisper)
+  voice.py         mic recording and text-to-speech
+  scene.py         directions, distances, shirt colours, scene descriptions
+  depth.py         depth model for walls and other obstacles
+  finder.py        friend finder
+  detector.py      YOLO detection
+  memory.py        where each item was last seen
+  camera.py        lag-free camera reading with auto-reconnect
+  web_server.py    companion app API
+  collect.py       photo labelling tool for training
+web/index.html     companion app
+models/            trained model and training notebooks
+firmware/          optional Arduino obstacle-beeper (not needed: obstacles use the camera)
 ```
 
-## Setup
-```bash
-cd laptop
-pip install -r requirements.txt
-cp .env.example .env      # add your GEMINI_API_KEY
-python main.py
-```
-Then open http://localhost:5000 for the companion app.
+## Limitations
 
-## Team
-- Person A – firmware + wake word
-- Person B – object model + memory
-- Person C – Gemini + companion app
+- Distances are estimates from a single camera, so they're less reliable for things partly out of view.
+- Shirt colour is read from the chest, so a jacket counts as the jacket's colour; dim or coloured light can confuse it.
+- English only.
