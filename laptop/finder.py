@@ -7,8 +7,9 @@ from voice import say
 
 
 class Finder:
-    def __init__(self, state, seconds, every_s):
+    def __init__(self, state, seconds, every_s, on_reached=None):
         self.state = state
+        self.on_reached = on_reached or (lambda: None)
         self.seconds = seconds
         self.every_s = every_s
         self.colour = None
@@ -43,6 +44,7 @@ class Finder:
                 misses = 0
                 where, how_far = scene.direction(person[2], shape[1]), scene.distance(person[2], shape[0])
                 if how_far == "right in front of you" and where == "straight ahead":
+                    self.on_reached()
                     say(f"You've reached the person in {colour}. They're right in front of you.")
                     break
                 msg = f"Person in {colour} {where}, {how_far}."

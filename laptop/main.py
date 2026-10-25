@@ -11,6 +11,7 @@ from depth import DepthWatcher
 import scene
 from detector import Detector, draw
 from finder import Finder
+from hardware import Hardware
 from memory import Memory
 from speech import Transcriber
 import voice
@@ -35,7 +36,9 @@ state = {
     "warnings_on": lambda: alerts["on"],
 }
 alerts = {"beep": 0, "said": 0, "said_what": None, "quiet_until": 0, "on": True}
-finder = Finder(state, config.FINDER_SECONDS, config.FINDER_EVERY_S)
+hw = None  # ESP32 wristband link, started below if NOVA_HW_TOKEN is set
+finder = Finder(state, config.FINDER_SECONDS, config.FINDER_EVERY_S,
+                on_reached=lambda: hw and hw.alert("FOUND"))
 assistant.describe_in_background(memory)
 depth_watch = (DepthWatcher(state, config.DEPTH_MODEL, config.DEPTH_SIZE, config.DEPTH_SCALE)
                if config.USE_DEPTH else None)
@@ -51,6 +54,8 @@ def handle_question(wav=None, text=None, speak=True):
         with open(os.path.join(config.MEMORY_DIR, "last_question.wav"), "wb") as f:
             f.write(wav)
     answer = assistant.answer(intent, memory, state, finder)
+    if hw and intent in config.OBJECTS and memory.best_description(intent):
+        hw.alert("FOUND")  # wristband buzzes when we know where the item is
     state["log"].append({"time": time.time(), "question": said, "answer": answer})
     if speak:
         say(answer)
@@ -63,6 +68,8 @@ def on_wake():
         return  # already answering
     try:
         voice.hush()  # stop obstacle warnings first, so the mic doesn't hear Nova talking
+        if hw:
+            hw.alert("READY")
         wav = record_wav(config.RECORD_SECONDS)  # beeps once the mic is on
         beep(660)
         if wav is None:
@@ -96,6 +103,8 @@ def warn_obstacle(obstacle):
             return
         if key != alerts["said_what"] or now - alerts["said"] > (4 if stop else 8):
             alerts.update(said=now, said_what=key, beep=now)
+            if stop and hw:
+                hw.alert("OBSTACLE")  # wristband buzzes too
             text = (f"Stop. {name.capitalize()} {where}, {metres:.1f} metres." if stop
                     else f"{name.capitalize()} {where}, {metres:.1f} metres.")
             threading.Thread(target=say, args=(text,), daemon=True).start()
@@ -157,6 +166,13 @@ if __name__ == "__main__":
         print("Nano connected on", config.SERIAL_PORT)
     except Exception as e:
         print("Nano not connected (press SPACE to ask instead):", e)
+
+    if config.HW_TOKEN:
+        def cancel():
+            finder.stop()
+            voice.hush()
+        hw = Hardware(config.HW_TOKEN, config.HW_PORT,
+                      lambda: threading.Thread(target=on_wake, daemon=True).start(), cancel)
 
     app = create_app(state, memory, handle_question,
                      lambda: threading.Thread(target=on_wake, daemon=True).start(),
