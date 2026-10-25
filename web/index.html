@@ -94,7 +94,8 @@
   .gauge .track { stroke:var(--raised); }
   .gauge .fill { stroke:var(--pc, var(--nova)); stroke-linecap:round; transition:stroke-dashoffset .4s, stroke .4s; transform:rotate(-90deg); transform-origin:50% 50%; }
   .dist { font-size:34px; font-weight:800; letter-spacing:-1px; line-height:1.05; }
-  .what { color:var(--muted); text-transform:capitalize; font-size:14px; }
+  .what { color:var(--muted); font-size:14px; }
+  .what::first-letter { text-transform:uppercase; }
   .lanes { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:10px; }
   .lane { height:5px; border-radius:3px; background:var(--raised); transition:background .25s; }
   .lane.hit { background:var(--pc, var(--nova)); }

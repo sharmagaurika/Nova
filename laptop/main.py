@@ -74,19 +74,26 @@ def on_wake():
 
 
 def warn_obstacle(obstacle):
-    """Beep faster as an obstacle gets closer; say what it is when it's very close."""
+    """Say what's in the way (and "Stop" when very close); beep as an early heads-up."""
     if not obstacle or voice.status["mic"] != "idle" or finder.colour:
         return  # don't talk over questions, answers or friend-finder guidance
     name, metres, where = obstacle
     now = time.time()
     if metres < config.OBSTACLE_SAY_M:
-        if name != alerts["said_what"] or now - alerts["said"] > 5:
-            alerts.update(said=now, said_what=name, beep=now)
-            threading.Thread(target=say, args=(f"Careful, {name} {where}.",), daemon=True).start()
+        stop = metres < config.OBSTACLE_STOP_M
+        key = (name, stop)  # not direction: it flickers as you move
+        # Speak when the obstacle or its zone changes, otherwise repeat now and then
+        if voice.busy():
             return
-    if metres < config.OBSTACLE_WARN_M and now - alerts["beep"] > max(0.25, metres / 2):
+        if key != alerts["said_what"] or now - alerts["said"] > (4 if stop else 8):
+            alerts.update(said=now, said_what=key, beep=now)
+            text = (f"Stop. {name.capitalize()} {where}, {metres:.1f} metres." if stop
+                    else f"{name.capitalize()} {where}, {metres:.1f} metres.")
+            threading.Thread(target=say, args=(text,), daemon=True).start()
+        return
+    if metres < config.OBSTACLE_WARN_M and now - alerts["beep"] > 2:
         alerts["beep"] = now
-        threading.Thread(target=beep, args=(1200, 80), daemon=True).start()
+        threading.Thread(target=beep, args=(1200, 120), daemon=True).start()
 
 
 def camera_loop():

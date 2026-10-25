@@ -39,10 +39,11 @@ if not USE_CUSTOM:
 OBJECTS = list(TRACKED.values()) + (list(CUSTOM_TRACKED.values()) if USE_CUSTOM else [])
 RECORD_SECONDS = 7  # longest a question can be; recording stops early once you go quiet
 
-# Camera obstacle warnings: beeps start below WARN_M and speed up; spoken warning below SAY_M
+# Camera obstacle warnings: a beep below WARN_M, spoken below SAY_M, "Stop" below STOP_M
 CAMERA_HFOV_DEG = 65   # phone main camera's horizontal field of view
 OBSTACLE_WARN_M = 2.5
-OBSTACLE_SAY_M = 1.0
+OBSTACLE_SAY_M = 2.0
+OBSTACLE_STOP_M = 1.0
 # Metric depth model, so walls, doors and anything else close are caught too (set USE_DEPTH=0 to turn off)
 USE_DEPTH = os.getenv("USE_DEPTH", "1") == "1"
 DEPTH_MODEL = "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf"

@@ -85,6 +85,11 @@ def _speaker():
 threading.Thread(target=_speaker, daemon=True).start()
 
 
+def busy():
+    """True while something is being said or waiting to be said."""
+    return status["mic"] == "speaking" or not _speech.empty()
+
+
 def say(text):
     """Speak text and wait until it has been said."""
     print("🔊", text)
