@@ -50,10 +50,6 @@ DEPTH_MODEL = "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf"
 DEPTH_SIZE = 252   # model input size: 252 checks ~1.4x a second on a laptop
 DEPTH_SCALE = float(os.getenv("DEPTH_SCALE", "1.0"))  # calibrate: true distance / distance Nova shows
 
-# ESP32 wristband over Wi-Fi (hardware/esp32). Off unless NOVA_HW_TOKEN is set in .env
-HW_TOKEN = os.getenv("NOVA_HW_TOKEN", "")
-HW_PORT = 5055
-
 # Friend finder: how long to keep guiding, and how often to check
 FINDER_SECONDS = 45
 FINDER_EVERY_S = 1.5
