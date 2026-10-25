@@ -20,6 +20,36 @@
 | **Understands you offline** | Speech-to-text runs on the laptop with Whisper, and an offline parser works out the question, so voice works without internet or API quota. |
 | **Companion app** | A live dashboard at `http://localhost:5000` for caregivers and demos: Nova's animated orb (listening / thinking / speaking), live view, path-ahead gauge, belongings with verified/unconfirmed badges, and history. |
 
+## How it works
+
+```
+Phone camera ──Wi-Fi──► Camera reader (always the newest frame, auto-reconnect)
+                              │
+          ┌───────────────────┼─────────────────────┐
+          ▼                   ▼                     ▼
+   YOLOv8 (stock)      YOLOv8 (ours:          Depth Anything V2
+   people, furniture,  keys, wallet, phone)   (metric, indoor)
+   everyday objects                           distance to anything
+          └─────────┬─────────┘                     │
+                    ▼                               ▼
+        Memory: where each item was        Obstacle warnings: names what's
+        last seen + Gemini check in        ahead, "Stop" under 1 m, quiet
+        the background (flags false        while you're talking
+        sightings)
+                    │
+Mic ──► Whisper (offline) ──► question parser ──► answer ──► text-to-speech
+                                     │
+                          friend finder (people + shirt colour)
+                          scene description (Gemini, offline fallback)
+```
+
+- **Five models, one laptop.** Two YOLOv8 detectors, Depth Anything V2 and Whisper run locally, each on its own thread so nothing blocks the camera. Gemini is an optional cloud layer.
+- **Offline first.** Finding items, obstacle warnings, the friend finder and voice questions all work with no internet. Gemini adds richer descriptions and fact-checks sightings when it's available.
+- **Honest answers.** If Gemini can't see an item in the saved photo, Nova says it isn't sure rather than giving a made-up location.
+- **Speech that doesn't collide.** Asking a question cancels queued warnings, waits for Nova to finish speaking before listening (so the mic doesn't record Nova), and keeps warnings quiet while it answers.
+
+**Built with:** Python, Ultralytics YOLOv8, Hugging Face Transformers (Depth Anything V2), faster-whisper, Google Gemini, OpenCV, Flask, Roboflow + Google Colab for training.
+
 ## How to talk to Nova
 
 Press **SPACE** in the camera window, or click the **orb** in the companion app, then speak after the beep. Recording stops when you stop talking.
